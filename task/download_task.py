@@ -12,7 +12,7 @@ from lib.exception import (
 )
 
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 # https://developers.google.com/youtube/v3/docs/search/list
 # https://github.com/ytdl-org/youtube-dl
