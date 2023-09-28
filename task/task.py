@@ -16,5 +16,3 @@ class Task:
 
     async def start(self, req: Request) -> Response:
         return Response()
-
-

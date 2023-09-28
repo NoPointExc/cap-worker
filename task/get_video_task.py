@@ -3,6 +3,7 @@ import logging
 
 from googleapiclient.discovery import build
 from lib.config import YOUTUBE_API_KEY
+from lib.video import Video
 from task.task import Task, Request, Response
 from typing import List, Optional
 
@@ -30,8 +31,7 @@ class GetVideoRequest(Request):
 
 # videoCaption
 class GetVideoResponse(Response):
-    video_ids: List[str]
-
+    videos: List[Video]
 
 # TODO install youtube client
 class GetVideoTask(Task):
@@ -59,21 +59,20 @@ class GetVideoTask(Task):
                     f"Got Channal id: {channel_id} for"
                     f" channel title: {channel_title}"
                 )
-                return channel_id
-               
+                return channel_id              
         logger.error(
             f"Failed to get channel id for channel title: {channel_title}"
         )
         return None
 
     async def start(self, req: GetVideoRequest) -> GetVideoResponse:
-        video_ids = []
+        videos = []
         channel_id = self.get_channel_id(req.channel_title)
         if not channel_id:
-            return GetVideoResponse(video_ids)
+            return GetVideoResponse(videos)
 
         search_rst = self.youtube.search().list(
-            part="id",
+            part="id, snippet",
             channelId=channel_id,
             maxResults=req.max_video,
             type="video",
@@ -81,13 +80,16 @@ class GetVideoTask(Task):
 
         for item in search_rst.get("items", []):
             if "id" in item.keys() and "videoId" in item["id"]:
-                video_ids.append(item["id"]["videoId"])
+                video = Video(id=item["id"]["videoId"])
+                if "snippet" in item.keys():
+                    videos.snippet = item["snippet"]
+                videos.append(video)
 
         logger.info(
-            f"Found following videos: {video_ids} "
+            f"Found following videos: {videos} "
             f"for channel: {req.channel_title}"
         )
-        return GetVideoResponse(video_ids=video_ids)
+        return GetVideoResponse(videos=videos)
 
 
 # ------------- TEST -------------
