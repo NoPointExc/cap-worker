@@ -33,14 +33,16 @@ class GetVideoRequest(Request):
 class GetVideoResponse(Response):
     videos: List[Video]
 
+
 # TODO install youtube client
 class GetVideoTask(Task):
-    def init(self) -> None:
+    def init(self) -> "GetVideoTask":
         self.youtube = build(
             API_SERVICE_NAME,
             API_VERSION,
             developerKey=YOUTUBE_API_KEY,
         )
+        return self
 
     # TODO cache it.
     def get_channel_id(self, channel_title: str) -> Optional[str]:
@@ -82,11 +84,11 @@ class GetVideoTask(Task):
             if "id" in item.keys() and "videoId" in item["id"]:
                 video = Video(id=item["id"]["videoId"])
                 if "snippet" in item.keys():
-                    videos.snippet = item["snippet"]
+                    video.snippet = item["snippet"]
                 videos.append(video)
 
         logger.info(
-            f"Found following videos: {videos} "
+            f"Found following videos: {[v.id for v in videos]} "
             f"for channel: {req.channel_title}"
         )
         return GetVideoResponse(videos=videos)
@@ -149,8 +151,7 @@ class GetVideoTask(Task):
 
 
 async def test_get_sophia1_549_video():
-    task = GetVideoTask()
-    task.init()
+    task = GetVideoTask().init()
     channel_title = "索菲亚一斤半Sophia1.5"
     rsp = await task.start(GetVideoRequest(
         channel_title=channel_title,
@@ -158,7 +159,7 @@ async def test_get_sophia1_549_video():
     ))
     print(
         "Got follow top 10 video for channel "
-        f"'{channel_title}':\n {','.join(rsp.video_ids)}"
+        f"'{channel_title}':\n {','.join([v.id for v in rsp.videos])}"
     )
 
 

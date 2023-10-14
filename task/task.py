@@ -11,8 +11,8 @@ class Response(BaseModel):
 
 class Task:
 
-    def init(self) -> None:
-        pass
+    def init(self) -> "Task":
+        return self
 
     async def start(self, req: Request) -> Response:
         return Response()

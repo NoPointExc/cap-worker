@@ -44,16 +44,23 @@ class TranscriptTask(Task):
                 file=file,
                 prompt=";".join(prompts),
                 response_format="srt",
+                # response_format="json",  # TODO srt bug from open AI lib. fix it.
                 language="zh",
             )
-            video.transcript = {"srt": transcript}
+            transcript_bytes = bytes(transcript, "utf-8")
+            transcript_decode = transcript_bytes.decode()
+            print(transcript_decode)
+            video.transcript = {
+                # TODO what's the best way to decode this???
+                "srt": transcript_decode
+            }
         return video
 
     async def start(self, req: TranscriptRequest) -> TranscriptResponse:
 
         processed_videos = []
         for video in req.videos:
-            processed = await self.transcribe2(video)
+            processed = await self.transcribe(video)
             processed_videos.append(processed)
 
         return TranscriptResponse(videos=processed_videos)
@@ -72,6 +79,7 @@ async def test_transcript_a_video() -> None:
         transcript={}
     )
     rsp = await task.start(TranscriptRequest(videos=[video], language="zh"))
+    # trunk-ignore(bandit/B101)
     assert len(rsp.videos) == 1, "The transcript task expect to get 1 response"
     print(rsp.videos[0].transcript)
 

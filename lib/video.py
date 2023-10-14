@@ -1,11 +1,12 @@
 from pydantic import BaseModel
-from typing import Mapping, Any
-
+from typing import Mapping, Any, Optional
+import json
+import os
 
 class Video(BaseModel):
     id: str
     # /path/to/the/video.mp3
-    path: str
+    path: Optional[str] = None
     # {
     #     "publishedAt": "2023-09-10T10:00:45Z",
     #     "channelId": "UCR2LHLiQmL_zEJnlCiyyxAA",
@@ -33,14 +34,19 @@ class Video(BaseModel):
     #     "publishTime": "2023-09-10T10:00:45Z"
     #   }
     # }
-    snippet: Mapping[str, Any]
+    snippet: Mapping[str, Any] = {}
     # Transcript format to content, 
     # format could be json, text, srt, verbose_json, or vtt
-    transcript: Mapping[str, Any]
-
+    transcript: Mapping[str, Any] = {}
 
     def __str__(self) -> str:
-        return id
+        return str(self.id)
 
     def __repr__(self) -> str:
         return self.__str__()
+
+    def save_as_json(self, path: str) -> None:
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(f"{path}/{self.id}.json", "w", encoding="utf-8") as json_file:
+            json.dump(self.model_dump(mode="json"), json_file, ensure_ascii=False)

@@ -36,9 +36,6 @@ class DownloadResponse(Response):
 
 class DownloadTask(Task):
 
-    def init(self) -> None:
-        pass
-
     async def start(self, req: DownloadRequest) -> DownloadResponse:
         _start_time = time.time()
         """
@@ -81,9 +78,9 @@ class DownloadTask(Task):
                 f" while timeout is: {req.timeout}. Error detail: {e}"
             )
             logger.error(msg)
-            raise TimeoutException(msg)
+            raise TimeoutException(msg) from e
         except Exception as e:
-            raise UnknownException(str(e))
+            raise UnknownException(str(e)) from e
 
         if subprocess.returncode == 0 and (stderr is None or len(stderr) == 0):
             try:
@@ -94,7 +91,7 @@ class DownloadTask(Task):
                     f"failed with error: {e}"
                 )
                 logger.error(msg)
-                raise DependencyException(msg)
+                raise DependencyException(msg) from e
 
             title = video_info.get("title", None)
             duration_s = video_info.get("duration", None)
