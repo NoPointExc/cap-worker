@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from googleapiclient.discovery import build
-from lib.config import YOUTUBE_API_KEY
+from lib.config import YOUTUBE_API_KEY, API_VERSION
 from lib.video import Video
 from task.task import Task, Request, Response
 from typing import List, Optional
@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 API_SERVICE_NAME = "youtube"
-API_VERSION = "v3"
 
 
 class GetVideoRequest(Request):

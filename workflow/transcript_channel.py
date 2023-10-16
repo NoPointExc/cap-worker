@@ -21,8 +21,7 @@ MAX_VIDEO = 2
 TIMEOUT_S = 10 * 60
 # trunk-ignore(bandit/B108)
 VIDEO_DOWNLOAD_PATH = "/tmp/workflow/video"
-# trunk-ignore(bandit/B108)
-VIDEO_TRANSCRIPT_PATH = "/tmp/workflow/transcript"
+DEFAULT_TRANSCRIPT_EXT = "srt"
 
 
 class TranscriptChannelWorkflow:
@@ -93,7 +92,11 @@ class TranscriptChannelWorkflow:
 
         logger.info("Saving result as json file into ")
         for video in transcript_success:
-            video.save_as_json(path=VIDEO_TRANSCRIPT_PATH)
+            video.save_as_json()
+            tran_pathes = video.save_transcript()
+            transcript_path = tran_pathes.get(DEFAULT_TRANSCRIPT_EXT, None)
+            if transcript_path:
+                video.upload_transcript(transcript_path)
 
 
 # python3 -m workflow.transcript_channel workflow/transcript_channel.py
