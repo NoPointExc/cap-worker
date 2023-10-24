@@ -1,14 +1,23 @@
-import logging
 import json
+import logging
 import os
 
+from cryptography.fernet import Fernet
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from lib.config import YOUTUBE_API_KEY, API_VERSION
-from pydantic import BaseModel
 from typing import Mapping, Any, Optional
+from lib.config import (
+    YOUTUBE_API_KEY,
+    API_VERSION,
+    FERNET_KEY,
+)
+from lib.sqlite_connection_manager import SQLiteConnectionManager
+from lib.exception import BadRequestException
+from pydantic import BaseModel
 
 # trunk-ignore(bandit/B108)
 VIDEO_TRANSCRIPT_PATH = "/tmp/workflow/transcript"
+UTF_8 = "utf-8"
 logger = logging.getLogger(__file__)
 
 
@@ -83,15 +92,42 @@ class Video(BaseModel):
             pathes[ext] = path
         return pathes
 
+    def get_credential(self, user_name: str) -> Credentials:
+        credentials_encrypted = None
+        try:
+            with SQLiteConnectionManager().connect() as connection:
+                cursor = connection.cursor()
+                cursor.execute(
+                    "SELECT credentials FROM users WHERE name = ?",
+                    (user_name,)
+                )
+                credentials_encrypted = cursor.fetchone()[0]
+        except Exception as e:
+            logger.error(
+                f"Failed read credentials for name(email) {self.name} "
+                f"from sqlite3 due to error:\n {e}"
+            )
+        if credentials_encrypted:
+            fernet = Fernet(FERNET_KEY)
+            return fernet.decrypt(
+                credentials_encrypted
+            ).decode(UTF_8)
+        raise BadRequestException(
+            f"Failed to get credentials from database for user: {user_name}."
+        )
+
+    # Test video: https://www.youtube.com/watch?v=zB6CmLBNSGs
     # TODO auth required for upload.
     # TODO send user a link and click & auth before uplaod??
     # example https://github.com/youtube/api-samples/blob/master/python/captions.py#L53
     # googleapiclient.errors.HttpError: <HttpError 401 when requesting https://youtube.googleapis.com/upload/youtube/v3/captions?part=snippet&key=AIzaSyBIBYZ0LAYyfV6ZNtyRw0PzSMIhzOTubLk&alt=json&uploadType=multipart returned "API keys are not supported by this API. Expected OAuth2 access token or other authentication credentials that assert a principal. See https://cloud.google.com/docs/authentication". Details: "[{'message': 'Login Required.', 'domain': 'global', 'reason': 'required', 'location': 'Authorization', 'locationType': 'header'}]">
-    def upload_transcript(self, transcript_path: str) -> Any:
+    def upload_transcript(self, transcript_path: str, user_name: str) -> Any:
+        credentials = self.get_credential(user_name)
         youtube = build(
             "youtube",
             API_VERSION,
             developerKey=YOUTUBE_API_KEY,
+            credentials=credentials,
         )
         result = youtube.captions().insert(
             part="snippet",

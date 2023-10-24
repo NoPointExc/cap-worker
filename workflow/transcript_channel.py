@@ -1,6 +1,7 @@
-import logging
 import asyncio
+import logging
 
+from typing import Optional
 from task.transcript_task import (
     TranscriptTask,
     TranscriptRequest,
@@ -26,9 +27,10 @@ DEFAULT_TRANSCRIPT_EXT = "srt"
 
 class TranscriptChannelWorkflow:
 
-    def __init__(self, channel_title: str) -> None:
+    def __init__(self, channel_title: str, user_name: Optional[str]) -> None:
         self.channel_title = channel_title
         self.max_video = MAX_VIDEO
+        self.user_name = user_name
         self.videos = []
 
     async def start(self) -> None:
