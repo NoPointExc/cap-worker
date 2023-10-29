@@ -1,4 +1,3 @@
-import logging
 import asyncio
 import openai
 
@@ -7,8 +6,10 @@ from task.task import Task, Request, Response
 from lib.video import Video
 from lib.config import OPENAI_API_KEY
 from typing import List
+from lib.log import get_logger
 
-logger = logging.getLogger(__name__)
+
+logger = get_logger(__file__)
 
 OPENAI_DOMAIN = "https://api.openai.com/v1/"
 
@@ -49,7 +50,7 @@ class TranscriptTask(Task):
             )
             transcript_bytes = bytes(transcript, "utf-8")
             transcript_decode = transcript_bytes.decode()
-            print(transcript_decode)
+            # print(transcript_decode)
             video.transcript = {
                 # TODO what's the best way to decode this???
                 "srt": transcript_decode

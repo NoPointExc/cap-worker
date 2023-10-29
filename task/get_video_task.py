@@ -1,13 +1,14 @@
 import asyncio
-import logging
 
 from googleapiclient.discovery import build
 from lib.config import YOUTUBE_API_KEY, API_VERSION
 from lib.video import Video
 from task.task import Task, Request, Response
 from typing import List, Optional
+from lib.log import get_logger
 
-logger = logging.getLogger(__name__)
+
+logger = get_logger(__file__)
 
 
 API_SERVICE_NAME = "youtube"

@@ -1,6 +1,5 @@
 import asyncio
 import time
-import logging
 import json
 
 from task.task import Task, Request, Response
@@ -10,9 +9,10 @@ from lib.exception import (
     DependencyException,
     BadRequestException,
 )
+from lib.log import get_logger
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__file__)
 
 # https://developers.google.com/youtube/v3/docs/search/list
 # https://github.com/ytdl-org/youtube-dl
@@ -62,6 +62,7 @@ class DownloadTask(Task):
             req.id,
         ]
 
+        logger.info(f"Going to run command:\n {' '.join(cmd)}")
         subprocess = await asyncio.create_subprocess_shell(
             " ".join(cmd),
             stdout=asyncio.subprocess.PIPE,

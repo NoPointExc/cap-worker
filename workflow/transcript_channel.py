@@ -14,8 +14,10 @@ from task.get_video_task import (
     GetVideoRequest,
     GetVideoTask
 )
+from lib.log import get_logger
 
-logger = logging.getLogger(__file__)
+
+logger = get_logger(__file__)
 
 
 MAX_VIDEO = 2

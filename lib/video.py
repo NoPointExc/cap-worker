@@ -13,12 +13,15 @@ from lib.config import (
 )
 from lib.sqlite_connection_manager import SQLiteConnectionManager
 from lib.exception import BadRequestException
+from lib.log import get_logger
 from pydantic import BaseModel
 
 # trunk-ignore(bandit/B108)
 VIDEO_TRANSCRIPT_PATH = "/tmp/workflow/transcript"
 UTF_8 = "utf-8"
-logger = logging.getLogger(__file__)
+
+
+logger = get_logger(__file__)
 
 
 class Video(BaseModel):
@@ -109,9 +112,12 @@ class Video(BaseModel):
             )
         if credentials_encrypted:
             fernet = Fernet(FERNET_KEY)
-            return fernet.decrypt(
+            credentials_raw = fernet.decrypt(
                 credentials_encrypted
             ).decode(UTF_8)
+            credentials_json = json.loads(credentials_raw)
+            logger.info(f"credentials_json\n {credentials_json}")
+            return Credentials.from_authorized_user_info(info=credentials_json)
         raise BadRequestException(
             f"Failed to get credentials from database for user: {user_name}."
         )
@@ -122,6 +128,7 @@ class Video(BaseModel):
     # example https://github.com/youtube/api-samples/blob/master/python/captions.py#L53
     # googleapiclient.errors.HttpError: <HttpError 401 when requesting https://youtube.googleapis.com/upload/youtube/v3/captions?part=snippet&key=AIzaSyBIBYZ0LAYyfV6ZNtyRw0PzSMIhzOTubLk&alt=json&uploadType=multipart returned "API keys are not supported by this API. Expected OAuth2 access token or other authentication credentials that assert a principal. See https://cloud.google.com/docs/authentication". Details: "[{'message': 'Login Required.', 'domain': 'global', 'reason': 'required', 'location': 'Authorization', 'locationType': 'header'}]">
     def upload_transcript(self, transcript_path: str, user_name: str) -> Any:
+        logger.info(f"Going to upload for user: {user_name}")
         credentials = self.get_credential(user_name)
         youtube = build(
             "youtube",
@@ -129,6 +136,9 @@ class Video(BaseModel):
             developerKey=YOUTUBE_API_KEY,
             credentials=credentials,
         )
+        # This require at last one of them:
+        # https://www.googleapis.com/auth/youtube.force-ssl
+        # https://www.googleapis.com/auth/youtubepartner
         result = youtube.captions().insert(
             part="snippet",
             body=dict(
@@ -136,8 +146,8 @@ class Video(BaseModel):
                     videoId=self.id,
                     # TODO, set language
                     language="zh",
-                    # name=name,
-                    isDraft=True
+                    name="中文字幕测试",
+                    isDraft=False
                 )
             ),
             media_body=transcript_path,
