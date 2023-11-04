@@ -116,6 +116,12 @@ class DownloadTask(Task):
                 ext=ext,
                 description=description,
             )
+        elif "Private video" in str(stderr):
+            raise BadRequestException(
+                "Please publish your video first. "
+                "Failed to download video with error: \n"
+                f"   '{str(stderr)}' \n"
+            )
         else:
             msg = (
                 f"subprocess:\n ${' '.join(cmd)}\n"
