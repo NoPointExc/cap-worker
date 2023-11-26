@@ -1,4 +1,4 @@
-import sqlite3
+import aiosqlite
 from lib.config import SQLITE_DB_FILE
 
 
@@ -15,20 +15,18 @@ class SQLiteConnectionManager:
     def __init__(self) -> "SQLiteConnectionManager":
         self._db_file = SQLITE_DB_FILE
 
-    def connect(self):
+    async def connect(self):
         if self._conn is None:
-            self._conn = sqlite3.connect(self._db_file)
+            self._conn = await aiosqlite.connect(self._db_file)
         return self._conn
 
-    def close(self):
+    async def close(self):
         if self._conn is not None:
-            self._conn.close()
+            await self._conn.close()
             self._conn = None
 
-    def __enter__(self):
-        self.connection = sqlite3.connect(self.db_name)
-        return self.connection
+    async def __aenter__(self):
+        return await self.connect()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.connection:
-            self.connection.close()
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()

@@ -1,6 +1,6 @@
 import json
-import logging
 import os
+import time
 
 from cryptography.fernet import Fernet
 from google.oauth2.credentials import Credentials
@@ -11,7 +11,7 @@ from lib.config import (
     API_VERSION,
     FERNET_KEY,
 )
-from lib.sqlite_connection_manager import SQLiteConnectionManager
+from lib.aio_sqlite_connection_manager import SQLiteConnectionManager
 from lib.exception import BadRequestException
 from lib.log import get_logger
 from pydantic import BaseModel
@@ -95,19 +95,19 @@ class Video(BaseModel):
             pathes[ext] = path
         return pathes
 
-    def get_credential(self, user_name: str) -> Credentials:
+    async def get_credential(self, user_name: str) -> Credentials:
         credentials_encrypted = None
         try:
-            with SQLiteConnectionManager().connect() as connection:
-                cursor = connection.cursor()
-                cursor.execute(
+            async with SQLiteConnectionManager() as connection:
+                cursor = await connection.execute(
                     "SELECT credentials FROM users WHERE name = ?",
                     (user_name,)
                 )
-                credentials_encrypted = cursor.fetchone()[0]
+                row = await cursor.fetchone()
+                credentials_encrypted = row[0]
         except Exception as e:
             logger.error(
-                f"Failed read credentials for name(email) {self.name} "
+                f"Failed read credentials for name(email) {self.id} "
                 f"from sqlite3 due to error:\n {e}"
             )
         if credentials_encrypted:
@@ -127,9 +127,13 @@ class Video(BaseModel):
     # TODO send user a link and click & auth before uplaod??
     # example https://github.com/youtube/api-samples/blob/master/python/captions.py#L53
     # googleapiclient.errors.HttpError: <HttpError 401 when requesting https://youtube.googleapis.com/upload/youtube/v3/captions?part=snippet&key=AIzaSyBIBYZ0LAYyfV6ZNtyRw0PzSMIhzOTubLk&alt=json&uploadType=multipart returned "API keys are not supported by this API. Expected OAuth2 access token or other authentication credentials that assert a principal. See https://cloud.google.com/docs/authentication". Details: "[{'message': 'Login Required.', 'domain': 'global', 'reason': 'required', 'location': 'Authorization', 'locationType': 'header'}]">
-    def upload_transcript(self, transcript_path: str, user_name: str) -> Any:
+    async def upload_transcript(
+            self,
+            transcript_path: str,
+            user_name: str
+    ) -> Any:
         logger.info(f"Going to upload for user: {user_name}")
-        credentials = self.get_credential(user_name)
+        credentials = await self.get_credential(user_name)
         youtube = build(
             "youtube",
             API_VERSION,
@@ -146,7 +150,8 @@ class Video(BaseModel):
                     videoId=self.id,
                     # TODO, set language
                     language="zh",
-                    name="中文字幕测试",
+                    # TODO better name. E.g app_language_data
+                    name=f"中文字幕测试_{int(time.time())}",
                     isDraft=False
                 )
             ),

@@ -64,19 +64,29 @@ class SingleVideoWorkflow:
 
         logger.info(f"videos {self.video_id} transcript successed.")
 
-        logger.info("Saving result as json file into ")
         # video.save_as_json()
         tran_pathes = video.save_transcript()
+        logger.info(f"Transcript has been writen into : {tran_pathes}")
         transcript_path = tran_pathes.get(DEFAULT_TRANSCRIPT_EXT, None)
         if transcript_path:
-            video.upload_transcript(transcript_path, self.user_name)
+            logger.info(
+                f"Uploading transcript in {transcript_path} "
+                "to the Youtube"
+            )
+            await video.upload_transcript(transcript_path, self.user_name)
+            logger.info("uploaded")
+        else:
+            logger.info("upload skipped")
+        logger.info("All done")
 
 
 # python3 -m workflow.single_video workflow/single_video.py
 if __name__ == "__main__":
     # TODO get args from cli??
     workflow = SingleVideoWorkflow(
-        video_id="dVKixmPdVKc",
+        video_id="3g5KGYyneGw",
         user_name="sjyhehe@gmail.com",
     )
+    logger.info("starting signle youtube video workflow")
     asyncio.run(workflow.start())
+    logger.info("Single video has been done for video_id: 3g5KGYyneGw")
