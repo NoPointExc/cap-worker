@@ -1,6 +1,7 @@
 import asyncio
 
-from typing import Optional
+from lib.log import get_logger
+from lib.video import Video
 from task.transcript_task import (
     TranscriptTask,
     TranscriptRequest,
@@ -9,8 +10,8 @@ from task.download_task import (
     DownloadRequest,
     DownloadTask
 )
-from lib.log import get_logger
-from lib.video import Video
+from typing import Optional, Set
+from workflow.workflow import Workflow, BaseArgs, WorkflowType
 
 
 logger = get_logger(__file__)
@@ -22,20 +23,41 @@ VIDEO_DOWNLOAD_PATH = "/tmp/workflow/video"
 DEFAULT_TRANSCRIPT_EXT = "srt"
 
 
-class SingleVideoWorkflow:
+class Args(BaseArgs):
+    """
+    One Example:
+    {
+        "video_uuid": "vO_yw27CCi4",
+        "auto_upload": "false",
+        "language": "CN",
+        "transcript_fmts": ["srt"],
+        "promotes": "元青花"
+    }
+    """
+    video_uuid: str  # TODO validation for this.
+    auto_upload: bool
+    language: Optional[str] = None
+    transcript_fmts: Set[str] = {"srt"}
+    promotes: Optional[str] = None
 
-    def __init__(self, video_id: str, user_name: Optional[str]) -> None:
-        self.video_id = video_id
-        self.user_name = user_name
 
-    async def start(self) -> None:
-        logger.info(f"Get videos for {self.video_id} for user: {self.user_name}...")
-        video = Video(id=self.video_id)
+class SingleVideoWorkflow(Workflow[Args]):
+    def __init__(self):
+        super().__init__(WorkflowType.VIDEO, Args)
+
+    async def _start(self, id: int, user_id: int, args: Args) -> int:
+        # TODO get user name with user id
+        self.user_name = "sjyhehe@gmail.com"
+
+        logger.info(
+            f"Get videos for {args.video_uuid} for user: {self.user_name}...")
+        video = Video(id=args.video_uuid)
 
         logger.info(f"Download videos : {video}")
         download_task = DownloadTask().init()
         try:
-            download_rsp = await download_task.start(DownloadRequest(
+            download_rsp = await download_task.start(
+                DownloadRequest(
                     id=video.id,
                     path=VIDEO_DOWNLOAD_PATH,
                     timeout=TIMEOUT_S,
@@ -62,7 +84,7 @@ class SingleVideoWorkflow:
             )
             raise e
 
-        logger.info(f"videos {self.video_id} transcript successed.")
+        logger.info(f"videos {video.id} transcript successed.")
 
         # video.save_as_json()
         tran_pathes = video.save_transcript()
@@ -82,11 +104,7 @@ class SingleVideoWorkflow:
 
 # python3 -m workflow.single_video workflow/single_video.py
 if __name__ == "__main__":
-    # TODO get args from cli??
-    workflow = SingleVideoWorkflow(
-        video_id="3g5KGYyneGw",
-        user_name="sjyhehe@gmail.com",
-    )
+    video_workflow = SingleVideoWorkflow()
     logger.info("starting signle youtube video workflow")
-    asyncio.run(workflow.start())
-    logger.info("Single video has been done for video_id: 3g5KGYyneGw")
+    workflow_id = asyncio.run(video_workflow.start())
+    logger.info(f"Single video has been done for workflow id: {workflow_id}")
