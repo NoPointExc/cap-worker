@@ -76,7 +76,7 @@ class Workflow(Generic[Args]):
                     "No pending work left for "
                     f"workflow type: {self.workflow_type.name}"
                 )
-                return None, None
+                return None
             id, user_id, args, type = row
             # Lock
             logger.info(f"Locking workflow: {id}")
@@ -98,7 +98,7 @@ class Workflow(Generic[Args]):
         finally:
             await conn.commit()
             await conn.close()
-        return None, None, None
+        return None
 
     async def start(self) -> Optional[int]:
         out = await self.claim()
