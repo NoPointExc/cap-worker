@@ -3,6 +3,21 @@ from lib.config import SQLITE_DB_FILE
 
 
 class SQLiteConnectionManager:
+    """"
+    Example 1:
+    try:
+        conn = await SQLiteConnectionManager().connect()
+        await conn.execute(...)
+    except Exception:
+        pass
+    finally:
+        await SQLiteConnectionManager().close()
+
+
+    Example 2:
+    async with SQLiteConnectionManager() as conn:
+        await conn.execute(...)
+    """
     _instance = None
 
     def __new__(cls) -> "SQLiteConnectionManager":

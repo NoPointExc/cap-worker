@@ -106,10 +106,11 @@ class Video(BaseModel):
                 row = await cursor.fetchone()
                 credentials_encrypted = row[0]
         except Exception as e:
-            logger.error(
+            msg = (
                 f"Failed read credentials for name(email) {self.id} "
                 f"from sqlite3 due to error:\n {e}"
             )
+            raise BadRequestException(msg) from e
         if credentials_encrypted:
             fernet = Fernet(FERNET_KEY)
             credentials_raw = fernet.decrypt(

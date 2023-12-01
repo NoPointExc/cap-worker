@@ -71,34 +71,36 @@ class Workflow(Generic[Args]):
                 (Status.TODO.value, self.workflow_type.value)
             )
             row = await cursor.fetchone()
-            if not row:
+            if row:
+                id, user_id, args, type = row
+                # Lock
+                logger.info(f"Locking workflow: {id}")
+                await conn.execute(
+                    UPDATE_SQL,
+                    (Status.LOCKED.value, id),
+                )
+                logger.info(f"Locked workflow: {id}")
+                arg_obj = self.args_type.from_json(json_str=args)
+
+                # Claim
+                logger.info(f"Claiming workflow: {id}")
+                await conn.execute(UPDATE_SQL, (Status.CLAIMED.value, id))
+            else:
                 logger.info(
                     "No pending work left for "
                     f"workflow type: {self.workflow_type.name}"
                 )
-                return None
-            id, user_id, args, type = row
-            # Lock
-            logger.info(f"Locking workflow: {id}")
-            await conn.execute(
-                UPDATE_SQL,
-                (Status.LOCKED.value, id),
-            )
-            logger.info(f"Locked workflow: {id}")
-            arg_obj = self.args_type.from_json(json_str=args)
-
-            # Claim
-            logger.info(f"Claiming workflow: {id}")
-            await conn.execute(UPDATE_SQL, (Status.CLAIMED.value, id))
-            return id, user_id, arg_obj
         except Exception as e:
             logger.exception(e)
             # Mark as error.
             await conn.execute(UPDATE_SQL, (Status.ERROR.value, id))
         finally:
             await conn.commit()
-            await conn.close()
-        return None
+            await SQLiteConnectionManager().close()
+
+        if not row:
+            return None
+        return id, user_id, arg_obj
 
     async def start(self) -> Optional[int]:
         out = await self.claim()
