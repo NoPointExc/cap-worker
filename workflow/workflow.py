@@ -42,6 +42,20 @@ class Workflow(Generic[Args]):
         self.args_type = args
         self.workflow_type = worflow_type
 
+    async def done(self, id: int) -> None:
+        UPDATE_SQL = """
+            UPDATE workflow
+            SET status = ?
+            WHERE id = ?
+        """
+        async with SQLiteConnectionManager() as conn:
+            logger.info(f"Mark workflow: {id} as 'DONE'")
+            await conn.execute(
+                UPDATE_SQL,
+                (Status.DONE.value, id),
+            )
+            await conn.commit()
+
     async def claim(self) -> Optional[Tuple[int, int, Args]]:
         SELECT_SQL = """
             SELECT
@@ -110,4 +124,5 @@ class Workflow(Generic[Args]):
         id, user_id, args = out
         logger.info(f"Starting workflow id: {id} with args: {args}")
         await self._start(id, user_id, args)
+        await self.done(id)
         return id

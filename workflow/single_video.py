@@ -34,18 +34,35 @@ class Args(BaseArgs):
         "promotes": "元青花"
     }
     """
-    video_uuid: str  # TODO validation for this.
+    video_uuid: str  # TODO validation for this to return invliad uuid fast.
     auto_upload: bool
+    # TODO validation for language and transcript formats
     language: Optional[str] = None
     transcript_fmts: Set[str] = {"srt"}
+    # TODO validation on promotes size.
+    # TODO should be "prompts". Typo, but this has been copy past everywhere.
     promotes: Optional[str] = None
+
+    @property
+    def transcript_fmt(self) -> str:
+        transcript_fmt = "srt"
+        if len(self.transcript_fmts) > 0:
+            transcript_fmt = list(self.transcript_fmts)[0]
+        if len(self.transcript_fmts) > 1:
+            logger.warning(
+                "More than one transcript_fmts "
+                f"requests: {self.transcript_fmts} "
+                f"which is not supported now. "
+                f"Taking {transcript_fmt} only now."
+            )
+        return transcript_fmt
 
 
 class SingleVideoWorkflow(Workflow[Args]):
     def __init__(self):
         super().__init__(WorkflowType.VIDEO, Args)
 
-    async def _start(self, id: int, user_id: int, args: Args) -> int:
+    async def _start(self, workflow_id: int, user_id: int, args: Args) -> int:
         # TODO get user name with user id
         self.user_name = "sjyhehe@gmail.com"
 
@@ -70,11 +87,15 @@ class SingleVideoWorkflow(Workflow[Args]):
             raise e
 
         transcript_task = TranscriptTask().init()
+
         try:
+            logger.info(f"language={args.language}")
             _ = await transcript_task.start(
                 TranscriptRequest(
                     videos=[video],
-                    language="zh",
+                    language=args.language,
+                    promot=args.promotes,
+                    transcript_fmt=args.transcript_fmt,
                 )
             )
         except Exception as e:
@@ -86,15 +107,15 @@ class SingleVideoWorkflow(Workflow[Args]):
 
         logger.info(f"videos {video.id} transcript successed.")
 
-        # video.save_as_json()
         tran_pathes = video.save_transcript()
         logger.info(f"Transcript has been writen into : {tran_pathes}")
         transcript_path = tran_pathes.get(DEFAULT_TRANSCRIPT_EXT, None)
-        if transcript_path:
+        if transcript_path and args.auto_upload:
             logger.info(
                 f"Uploading transcript in {transcript_path} "
                 "to the Youtube"
             )
+            # TODO handle error when no access to upload
             await video.upload_transcript(transcript_path, self.user_name)
             logger.info("uploaded")
         else:

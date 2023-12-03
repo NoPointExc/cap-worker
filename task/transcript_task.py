@@ -5,7 +5,7 @@ import openai
 from task.task import Task, Request, Response
 from lib.video import Video
 from lib.config import OPENAI_API_KEY
-from typing import List
+from typing import List, Optional
 from lib.log import get_logger
 
 
@@ -16,20 +16,29 @@ OPENAI_DOMAIN = "https://api.openai.com/v1/"
 
 class TranscriptRequest(Request):
     videos: List[Video]
-    language: str
+    language: Optional[str]
+    transcript_fmt: str
+    promot: Optional[str]
 
 
 class TranscriptResponse(Response):
-    # TODO only return videos with transcript
     videos: List[Video]
 
 
 class TranscriptTask(Task):
 
-    async def transcribe(self, video: Video) -> Video:
+    async def transcribe(
+            self,
+            video: Video,
+            transcript_fmt: str,
+            language: Optional[str],
+            promot: Optional[str],
+    ) -> Video:
         openai.api_key = OPENAI_API_KEY
 
         prompts = []
+        if promot:
+            prompts.append(promot)
         snippet = video.snippet
 
         if "channelTitle" in snippet.keys():
@@ -44,9 +53,8 @@ class TranscriptTask(Task):
                 model="whisper-1",
                 file=file,
                 prompt=";".join(prompts),
-                response_format="srt",
-                # response_format="json",  # TODO srt bug from open AI lib. fix it.
-                language="zh",
+                response_format=transcript_fmt,
+                language=language,
             )
             transcript_bytes = bytes(transcript, "utf-8")
             transcript_decode = transcript_bytes.decode()
@@ -61,7 +69,12 @@ class TranscriptTask(Task):
 
         processed_videos = []
         for video in req.videos:
-            processed = await self.transcribe(video)
+            processed = await self.transcribe(
+                video=video,
+                language=req.language,
+                transcript_fmt=req.transcript_fmt,
+                promot=req.promot,
+            )
             processed_videos.append(processed)
 
         return TranscriptResponse(videos=processed_videos)
@@ -79,7 +92,12 @@ async def test_transcript_a_video() -> None:
         snippet={"channelTitle": "智胜", "description": "女同学"},
         transcript={}
     )
-    rsp = await task.start(TranscriptRequest(videos=[video], language="zh"))
+    rsp = await task.start(TranscriptRequest(
+        videos=[video],
+        language=None,  # "zh",
+        transcript_fmts="srt",
+        promot=None
+    ))
     # trunk-ignore(bandit/B101)
     assert len(rsp.videos) == 1, "The transcript task expect to get 1 response"
     print(rsp.videos[0].transcript)
