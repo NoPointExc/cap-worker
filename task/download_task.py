@@ -19,8 +19,8 @@ logger = get_logger(__file__)
 
 
 class DownloadRequest(Request):
-    # Youtube video id, e.g '5FpCdgZ-Jtk&t=20s'
-    id: str
+    # Youtube video uuid, e.g '5FpCdgZ-Jtk&t=20s'
+    uuid: str
     # path to download audio/video, e.g /tmp/yt_download
     path: str
     timeout: int
@@ -41,7 +41,7 @@ class DownloadTask(Task):
         """
         Example:
         $youtube-dl -f 'worstaudio/worst/bestaudio' -o '%(id)s.%(ext)s'  --print-json JUVlHzfncjw
-        {"id"" "JUVlHzfncjw","title": "【恋爱记】创始人 付小龙，5000万用户app的9年坎坷发展史",..."description":"...","duration": 663,"ext": "webm",...}
+        {"uuid"" "JUVlHzfncjw","title": "【恋爱记】创始人 付小龙，5000万用户app的9年坎坷发展史",..."description":"...","duration": 663,"ext": "webm",...}
         """
         if len(req.path) == 0:
             raise BadRequestException("path can't be none or empty string")
@@ -59,7 +59,7 @@ class DownloadTask(Task):
             # E.g '5FpCdgZ-Jtk&t=20s.webm'
             f"--output '{output}'",
             "--print-json",
-            req.id,
+            req.uuid,
         ]
 
         logger.info(f"Going to run command:\n {' '.join(cmd)}")
@@ -104,7 +104,7 @@ class DownloadTask(Task):
                     duration_s,
                     ext,
                     description,
-                    ]):
+            ]):
                 logger.warning(
                     "None of following video info expect to be empty but got: "
                     f"title: {title}, duration: {duration_s}, ext: {ext}, "
@@ -138,7 +138,7 @@ class DownloadTask(Task):
 # $python3 -m task.download_task task/download_task.py
 async def test_download_success() -> None:
     req = DownloadRequest(
-        id="JUVlHzfncjw",
+        uuid="JUVlHzfncjw",
         path="/tmp/yt_download",
         timeout=2*60,
     )
@@ -148,7 +148,7 @@ async def test_download_success() -> None:
 
 async def test_download_fail_with_invalid_video_id() -> None:
     req = DownloadRequest(
-        id="chestnut_video",
+        uuid="chestnut_video",
         path="/tmp/yt_download",
         timeout=2*60,
     )

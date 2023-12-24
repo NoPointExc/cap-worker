@@ -37,6 +37,7 @@ CREATE TABLE workflow (
 CREATE TABLE video (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workflow_id INTEGER,
+    user_id INTEGER,
     uuid TEXT,
     -- json-lized key-value pair.
     snippt TEXT,

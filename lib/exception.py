@@ -14,3 +14,7 @@ class UnknownException(Exception):
 
 class DependencyException(Exception):
     pass
+
+
+class IOException(Exception):
+    pass

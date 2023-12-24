@@ -15,14 +15,14 @@ OPENAI_DOMAIN = "https://api.openai.com/v1/"
 
 
 class TranscriptRequest(Request):
-    videos: List[Video]
+    video: Video
     language: Optional[str]
     transcript_fmt: str
     promot: Optional[str]
 
 
 class TranscriptResponse(Response):
-    videos: List[Video]
+    video: Video
 
 
 class TranscriptTask(Task):
@@ -58,26 +58,18 @@ class TranscriptTask(Task):
             )
             transcript_bytes = bytes(transcript, "utf-8")
             transcript_decode = transcript_bytes.decode()
-            # print(transcript_decode)
-            video.transcript = {
-                # TODO what's the best way to decode this???
-                "srt": transcript_decode
-            }
+            video.set_srt(transcript_decode)
         return video
 
     async def start(self, req: TranscriptRequest) -> TranscriptResponse:
+        transcribe_video = await self.transcribe(
+            video=req.video,
+            language=req.language,
+            transcript_fmt=req.transcript_fmt,
+            promot=req.promot,
+        )
 
-        processed_videos = []
-        for video in req.videos:
-            processed = await self.transcribe(
-                video=video,
-                language=req.language,
-                transcript_fmt=req.transcript_fmt,
-                promot=req.promot,
-            )
-            processed_videos.append(processed)
-
-        return TranscriptResponse(videos=processed_videos)
+        return TranscriptResponse(video=transcribe_video)
 
 
 # ------------- TEST -------------
@@ -93,7 +85,7 @@ async def test_transcript_a_video() -> None:
         transcript={}
     )
     rsp = await task.start(TranscriptRequest(
-        videos=[video],
+        video=video,
         language=None,  # "zh",
         transcript_fmts="srt",
         promot=None

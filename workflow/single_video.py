@@ -1,6 +1,11 @@
 import asyncio
 
+from typing import Optional, Set
+from google.oauth2.credentials import Credentials
+
+from lib.exception import IOException, UnknownException, DependencyException
 from lib.log import get_logger
+from lib.user import User
 from lib.video import Video
 from task.transcript_task import (
     TranscriptTask,
@@ -10,7 +15,6 @@ from task.download_task import (
     DownloadRequest,
     DownloadTask
 )
-from typing import Optional, Set
 from workflow.workflow import Workflow, BaseArgs, WorkflowType
 
 
@@ -58,74 +62,133 @@ class Args(BaseArgs):
         return transcript_fmt
 
 
+def get_video_path(uuid: str, ext: str) -> str:
+    return f"{VIDEO_DOWNLOAD_PATH}/{uuid}.{ext}"
+
+
 class SingleVideoWorkflow(Workflow[Args]):
     def __init__(self):
         super().__init__(WorkflowType.VIDEO, Args)
 
-    async def _start(self, workflow_id: int, user_id: int, args: Args) -> int:
-        # TODO get user name with user id
-        self.user_name = "sjyhehe@gmail.com"
-
+    async def _start(self, workflow_id: int, user: User, args: Args):
         logger.info(
-            f"Get videos for {args.video_uuid} for user: {self.user_name}...")
-        video = Video(id=args.video_uuid)
+            f"Get videos for {args.video_uuid} for user: {user.name}...")
+        video = Video(
+            workflow_id=workflow_id,
+            user_id=user.id,
+            uuid=args.video_uuid,
+        )
 
+        await self.dowload_video(video)
+
+        await self.transcript_video(
+            video,
+            args.language,
+            args.promotes,
+            args.transcript_fmts,
+        )
+
+        await video.save()
+
+        if args.auto_upload:
+            logger.info(f"Going to upload video {video.id}")
+            await self.upload_to_youtube(
+                self,
+                video,
+                args.language,
+                user.credentials,
+            )
+            logger.info(f"Video {video.id} uploaded.")
+
+        logger.info(f"videos {video.uuid} transcript successed.")
+
+    async def transcript_video(
+        self,
+        video: Video,
+        language: Optional[str],
+        promotes: Optional[str],
+        transcript_fmts: Set[str],
+    ) -> None:
+        transcript_task = TranscriptTask().init()
+        try:
+            logger.info(f"language={language}")
+            _ = await transcript_task.start(
+                TranscriptRequest(
+                    video=video,
+                    language=language,
+                    transcript_fmt=list(transcript_fmts)[0],
+                    promot=promotes,
+                )
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to transcript video: {video.uuid} "
+                f"due to error:\n {e}"
+            )
+            raise e
+
+    async def dowload_video(self, video: Video) -> None:
         logger.info(f"Download videos : {video}")
         download_task = DownloadTask().init()
         try:
             download_rsp = await download_task.start(
                 DownloadRequest(
-                    id=video.id,
+                    uuid=video.uuid,
                     path=VIDEO_DOWNLOAD_PATH,
                     timeout=TIMEOUT_S,
                 )
             )
-            video.path = f"{VIDEO_DOWNLOAD_PATH}/{video.id}.{download_rsp.ext}"
+            video.path = get_video_path(video.uuid, download_rsp.ext)
             logger.info(f"Download success for video: {video}")
         except Exception as e:
-            logger.error(f"Failed to download video: {video} with error:\n {e}")
+            logger.error(
+                f"Failed to download video: {video.uuid} with error:\n {e}")
             raise e
 
-        transcript_task = TranscriptTask().init()
+    async def upload_to_youtube(
+        self,
+        video: Video,
+        language: Optional[str],
+        credentials: Credentials,
+    ):
+        transcript = video.transcript.get(DEFAULT_TRANSCRIPT_EXT, None)
+        if not transcript:
+            raise UnknownException(
+                f"Required default transcript type: {DEFAULT_TRANSCRIPT_EXT} "
+                f"not found for video: {video}"
+            )
+
+        transcript_path = f"{self._path()}/{self.id}.{DEFAULT_TRANSCRIPT_EXT}"
+        try:
+            with open(transcript_path, "w", encoding="utf-8") as file:
+                file.write(transcript)
+        except Exception as e:
+            raise IOException from e
 
         try:
-            logger.info(f"language={args.language}")
-            _ = await transcript_task.start(
-                TranscriptRequest(
-                    videos=[video],
-                    language=args.language,
-                    promot=args.promotes,
-                    transcript_fmt=args.transcript_fmt,
-                )
+            await video.upload_transcript(
+                language,
+                transcript_path,
+                credentials,
             )
         except Exception as e:
-            logger.error(
-                f"Failed to transcript video: {video} "
-                f"due to error:\n {e}"
-            )
-            raise e
-
-        logger.info(f"videos {video.id} transcript successed.")
-
-        tran_pathes = video.save_transcript()
-        logger.info(f"Transcript has been writen into : {tran_pathes}")
-        transcript_path = tran_pathes.get(DEFAULT_TRANSCRIPT_EXT, None)
-        if transcript_path and args.auto_upload:
-            logger.info(
-                f"Uploading transcript in {transcript_path} "
-                "to the Youtube"
-            )
-            # TODO handle error when no access to upload
-            await video.upload_transcript(transcript_path, self.user_name)
-            logger.info("uploaded")
-        else:
-            logger.info("upload skipped")
-        logger.info("All done")
+            raise DependencyException from e
 
 
 # python3 -m workflow.single_video workflow/single_video.py
 if __name__ == "__main__":
     video_workflow = SingleVideoWorkflow()
     logger.info("starting signle youtube video workflow")
-    workflow_id = asyncio.run(video_workflow.start())
+
+    args = Args.model_validate({
+        "video_uuid": "3g5KGYyneGw",
+        "auto_upload": "false",
+        "language": "zh",
+        "transcript_fmts": ["srt"],
+        "promotes": "元青花"
+    })
+    user = asyncio.run(User.get_by_id(3))
+    workflow_id = asyncio.run(video_workflow._start(
+        0, user, args
+    ))
     logger.info(f"Single video has been done for workflow id: {workflow_id}")

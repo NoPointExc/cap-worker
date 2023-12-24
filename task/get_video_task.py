@@ -15,7 +15,7 @@ API_SERVICE_NAME = "youtube"
 
 
 class GetVideoRequest(Request):
-    # Example: 
+    # Example:
     # url:https://www.youtube.com/@sophia1.549
     # channel name: sophia1.549
     # channel title: 索菲亚一斤半Sophia1.5
@@ -46,13 +46,17 @@ class GetVideoTask(Task):
 
     # TODO cache it.
     def get_channel_id(self, channel_title: str) -> Optional[str]:
-        search_rst = self.youtube.search().list(
-            part="id,snippet",
-            q=channel_title,
-            maxResults=1,
-            type="video",
-            order="relevance",
-        ).execute()
+        search_rst = (
+            self.youtube.search()
+            .list(
+                part="id,snippet",
+                q=channel_title,
+                maxResults=1,
+                type="video",
+                order="relevance",
+            )
+            .execute()
+        )
 
         for item in search_rst.get("items", []):
             if "snippet" in item.keys() and "channelId" in item["snippet"]:
@@ -61,10 +65,9 @@ class GetVideoTask(Task):
                     f"Got Channal id: {channel_id} for"
                     f" channel title: {channel_title}"
                 )
-                return channel_id              
+                return channel_id
         logger.error(
-            f"Failed to get channel id for channel title: {channel_title}"
-        )
+            f"Failed to get channel id for channel title: {channel_title}")
         return None
 
     async def start(self, req: GetVideoRequest) -> GetVideoResponse:
@@ -73,18 +76,24 @@ class GetVideoTask(Task):
         if not channel_id:
             return GetVideoResponse(videos)
 
-        search_rst = self.youtube.search().list(
-            part="id, snippet",
-            channelId=channel_id,
-            maxResults=req.max_video,
-            type="video",
-        ).execute()
+        search_rst = (
+            self.youtube.search()
+            .list(
+                part="id, snippet",
+                channelId=channel_id,
+                maxResults=req.max_video,
+                type="video",
+            )
+            .execute()
+        )
 
         for item in search_rst.get("items", []):
             if "id" in item.keys() and "videoId" in item["id"]:
-                video = Video(id=item["id"]["videoId"])
+                video = Video(
+                    uuid=item["id"]["videoId"],
+                )
                 if "snippet" in item.keys():
-                    video.snippet = item["snippet"]
+                    video.set_snippet(item["snippet"])
                 videos.append(video)
 
         logger.info(
@@ -153,10 +162,12 @@ class GetVideoTask(Task):
 async def test_get_sophia1_549_video():
     task = GetVideoTask().init()
     channel_title = "索菲亚一斤半Sophia1.5"
-    rsp = await task.start(GetVideoRequest(
-        channel_title=channel_title,
-        max_video=10,
-    ))
+    rsp = await task.start(
+        GetVideoRequest(
+            channel_title=channel_title,
+            max_video=10,
+        )
+    )
     print(
         "Got follow top 10 video for channel "
         f"'{channel_title}':\n {','.join([v.id for v in rsp.videos])}"

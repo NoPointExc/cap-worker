@@ -1,9 +1,10 @@
 from enum import Enum
-from lib.aio_sqlite_connection_manager import SQLiteConnectionManager
-from lib.log import get_logger
 from pydantic import BaseModel
 from typing import TypeVar, Generic, Optional, Tuple, Type
 
+from lib.aio_sqlite_connection_manager import SQLiteConnectionManager
+from lib.user import User
+from lib.log import get_logger
 
 logger = get_logger(__file__)
 
@@ -81,8 +82,7 @@ class Workflow(Generic[Args]):
             conn.isolation_level = "EXCLUSIVE"
             # Select
             cursor = await conn.execute(
-                SELECT_SQL,
-                (Status.TODO.value, self.workflow_type.value)
+                SELECT_SQL, (Status.TODO.value, self.workflow_type.value)
             )
             row = await cursor.fetchone()
             if row:
@@ -123,6 +123,8 @@ class Workflow(Generic[Args]):
             return None
         id, user_id, args = out
         logger.info(f"Starting workflow id: {id} with args: {args}")
-        await self._start(id, user_id, args)
+        # get user
+        user = User.get_by_id(user_id)
+        await self._start(id, user, args)
         await self.done(id)
         return id
