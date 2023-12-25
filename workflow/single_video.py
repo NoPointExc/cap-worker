@@ -175,8 +175,7 @@ class SingleVideoWorkflow(Workflow[Args]):
             raise DependencyException from e
 
 
-# python3 -m workflow.single_video workflow/single_video.py
-if __name__ == "__main__":
+def test() -> None:
     video_workflow = SingleVideoWorkflow()
     logger.info("starting signle youtube video workflow")
 
@@ -189,6 +188,18 @@ if __name__ == "__main__":
     })
     user = asyncio.run(User.get_by_id(3))
     workflow_id = asyncio.run(video_workflow._start(
-        0, user, args
+        45, user, args
     ))
     logger.info(f"Single video has been done for workflow id: {workflow_id}")
+
+
+def main() -> None:
+    logger.info("Starting signle video workflow.")
+    video_workflow = SingleVideoWorkflow()
+    workflow_id = asyncio.run(video_workflow.start())
+    logger.info(f"Single video has been done for workflow id: {workflow_id}")
+
+
+# python3 -m workflow.single_video workflow/single_video.py
+if __name__ == "__main__":
+    main()

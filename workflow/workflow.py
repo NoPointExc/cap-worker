@@ -124,7 +124,7 @@ class Workflow(Generic[Args]):
         id, user_id, args = out
         logger.info(f"Starting workflow id: {id} with args: {args}")
         # get user
-        user = User.get_by_id(user_id)
+        user = await User.get_by_id(user_id)
         await self._start(id, user, args)
         await self.done(id)
         return id
