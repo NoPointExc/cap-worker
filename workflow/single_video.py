@@ -139,6 +139,11 @@ class SingleVideoWorkflow(Workflow[Args]):
                 )
             )
             video.path = get_video_path(video.uuid, download_rsp.ext)
+            video.set_snippet({
+                "title": download_rsp.title,
+                "description": download_rsp.description,
+                "duration": download_rsp.duration_s,
+            })
             logger.info(f"Download success for video: {video}")
         except Exception as e:
             logger.error(

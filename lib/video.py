@@ -57,7 +57,8 @@ class Video(BaseModel):
         return VIDEO_TRANSCRIPT_PATH
 
     def set_snippet(self, snippet: Mapping[str, Any]) -> None:
-        self.snippet = snippet
+        for k, v in snippet.items():
+            self.snippet[k] = v
 
     def set_srt(self, transcript: str) -> None:
         self.transcript["srt"] = transcript
