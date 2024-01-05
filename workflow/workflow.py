@@ -1,5 +1,5 @@
 from enum import Enum
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from typing import TypeVar, Generic, Optional, Tuple, Type
 
 from lib.aio_sqlite_connection_manager import SQLiteConnectionManager
@@ -94,7 +94,15 @@ class Workflow(Generic[Args]):
                     (Status.LOCKED.value, id),
                 )
                 logger.info(f"Locked workflow: {id}")
-                arg_obj = self.args_type.from_json(json_str=args)
+                try:
+                    arg_obj = self.args_type.from_json(json_str=args)
+                except ValidationError as e:
+                    logger.exception(
+                        f"Failed to parse {args}, "
+                        f"mark workflow: {id} as ERROR ",
+                        f"Error stack: {e}"
+                    )
+                    await conn.execute(UPDATE_SQL, (Status.ERROR.value, id))
 
                 # Claim
                 logger.info(f"Claiming workflow: {id}")
@@ -105,7 +113,7 @@ class Workflow(Generic[Args]):
                     f"workflow type: {self.workflow_type.name}"
                 )
         except Exception as e:
-            logger.exception(e)
+            logger.exception(f"Failed with unknown error: \n{e}")
             # Mark as error.
             await conn.execute(UPDATE_SQL, (Status.ERROR.value, id))
         finally:
