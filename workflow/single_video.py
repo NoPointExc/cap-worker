@@ -1,4 +1,7 @@
+#!/usr/bin/env python3 -m workflow.single_video
+
 import asyncio
+import time
 
 from typing import Optional, Set
 from google.oauth2.credentials import Credentials
@@ -19,6 +22,7 @@ from workflow.workflow import Workflow, BaseArgs, WorkflowType
 
 
 logger = get_logger(__file__)
+SLEEP_SECONDS = 6
 
 
 TIMEOUT_S = 10 * 60
@@ -199,10 +203,14 @@ def test() -> None:
 
 
 def main() -> None:
-    logger.info("Starting signle video workflow.")
     video_workflow = SingleVideoWorkflow()
-    workflow_id = asyncio.run(video_workflow.start())
-    logger.info(f"Single video has been done for workflow id: {workflow_id}")
+    while True:
+        workflow_id = asyncio.run(video_workflow.start())
+        logger.info(
+            f"Single video has been done for workflow id: {workflow_id}. "
+            f"Going to sleep for {SLEEP_SECONDS}s"
+        )
+        time.sleep(SLEEP_SECONDS)
 
 
 # python3 -m workflow.single_video workflow/single_video.py
