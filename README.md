@@ -16,11 +16,13 @@ $ db_file=$(cat lib/config.py | grep SQLITE_DB_FILE | awk -F'"' '{print $2}') ; 
 
 To create the table schema:
 ```sql
- CREATE TABLE user (
+ CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     create_at INTEGER,
     auth_state TEXT,
-    credentials TEXT
+    credentials TEXT,
+    -- Transcript work credit in minutes.
+    credit INTEGER,
  );
 
 CREATE TABLE workflow (
@@ -49,4 +51,13 @@ create TABLE transcript (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content TEXT
 );
+
+CREATE TABLE payment (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    create_at INTEGER,
+    quantity INTEGER,
+    -- pending, success, canceled, failed
+    status INTEGER
+)
 ```

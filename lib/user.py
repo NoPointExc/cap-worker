@@ -2,17 +2,9 @@ import json
 
 from cryptography.fernet import Fernet
 from google.oauth2.credentials import Credentials
-from pydantic import (
-    BaseModel,
-    WrapValidator,
-    ValidatorFunctionWrapHandler,
-    ValidationInfo,
-)
-from pydantic.functional_validators import AfterValidator, BeforeValidator
-
+from pydantic import BaseModel
 
 from typing import Optional
-from typing_extensions import Annotated
 
 from lib.aio_sqlite_connection_manager import SQLiteConnectionManager
 from lib.log import get_logger
@@ -28,6 +20,7 @@ class User(BaseModel):
     name: str
     create_at: int
     credentials_encrypted: Optional[str]
+    credit: int
 
     @property
     def credentials(self) -> Optional[Credentials]:
@@ -56,7 +49,7 @@ class User(BaseModel):
     async def get_by_id(cls, id: int) -> "User":
         sql = """
             SELECT
-                id, name, create_at, credentials
+                id, name, create_at, credentials, credit
             FROM users
             WHERE id = ?
         """
@@ -66,12 +59,13 @@ class User(BaseModel):
                 cursor = await conn.execute(sql, (id,))
                 row = await cursor.fetchone()
                 if row:
-                    id, name, create_at, credentials_encrypted = row
+                    id, name, create_at, credentials_encrypted, credit = row
                     user = User(
                         id=id,
                         name=name,
                         create_at=create_at,
                         credentials_encrypted=credentials_encrypted,
+                        credit=credit,
                     )
         except Exception as e:
             logger.exception(f"User not found due to exception: {e}")
