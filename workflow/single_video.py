@@ -1,6 +1,7 @@
 #!/usr/bin/env python3 -m workflow.single_video
 
 import asyncio
+import math
 import time
 
 from typing import Optional, Set
@@ -82,8 +83,22 @@ class SingleVideoWorkflow(Workflow[Args]):
             user_id=user.id,
             uuid=args.video_uuid,
         )
+        duration_m = None
+        video = await self.dowload_video(video)
+        if "duration" in video.snippet:
+            duration_m = math.ceil(video.snippet["duration"] / 60.0)
+            if duration_m > user.credit:
+                logger.warning(
+                    f"No enough credit. Video {video.uuid} "
+                    f"cost {duration_m} mins of credit "
+                    f"but user {user.id} only has {user.credit} mins."
+                )
+                await self.no_credit(workflow_id)
+                return False
 
-        await self.dowload_video(video)
+        logger.info(
+            f"Video {video.uuid} duration is {duration_m} minutes."
+        )
 
         await self.transcript_video(
             video,
@@ -93,6 +108,20 @@ class SingleVideoWorkflow(Workflow[Args]):
         )
 
         await video.save()
+        # Charge
+        if duration_m is None:
+            logger.error(
+                f"Can not get duration for video {video.uuid} "
+                f"from workflow {workflow_id} for user: {user.id}"
+            )
+        elif duration_m > 0:
+            await user.charge(duration_m)
+        elif duration_m <= 0:
+            logger.error(
+                f"Duration {duration_m}mins is not expected for "
+                f"video {video.uuid} from workflow {workflow_id} "
+                f"for user: {user.id}"
+            )
 
         if args.auto_upload:
             logger.info(f"Going to upload video {video.id}")
@@ -105,6 +134,8 @@ class SingleVideoWorkflow(Workflow[Args]):
             logger.info(f"Video {video.id} uploaded.")
 
         logger.info(f"videos {video.uuid} transcript successed.")
+        await self.done(workflow_id)
+        return True
 
     async def transcript_video(
         self,
@@ -131,7 +162,7 @@ class SingleVideoWorkflow(Workflow[Args]):
             )
             raise e
 
-    async def dowload_video(self, video: Video) -> None:
+    async def dowload_video(self, video: Video) -> Video:
         logger.info(f"Download videos : {video}")
         download_task = DownloadTask().init()
         try:
@@ -153,6 +184,8 @@ class SingleVideoWorkflow(Workflow[Args]):
             logger.error(
                 f"Failed to download video: {video.uuid} with error:\n {e}")
             raise e
+
+        return video
 
     async def upload_to_youtube(
         self,

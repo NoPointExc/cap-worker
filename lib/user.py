@@ -71,3 +71,21 @@ class User(BaseModel):
             logger.exception(f"User not found due to exception: {e}")
 
         return user
+
+    async def charge(self, cost: int) -> None:
+        sql = """
+            UPDATE users
+            SET credit = credit - ?
+            WHERE id = ?
+        """
+
+        try:
+            async with SQLiteConnectionManager() as conn:
+                await conn.execute(sql, (cost, self.id))
+                await conn.commit()
+        except Exception as e:
+            logger.exception(
+                f"Failed to charge user: {self.id} {cost} "
+                f"with sql: \n{sql}\n"
+                f"due to error: \n{e}"
+            )

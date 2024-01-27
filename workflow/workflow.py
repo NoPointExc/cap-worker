@@ -32,6 +32,7 @@ class Status(Enum):
     WORKING = 4
     ERROR = 5
     FAILED = 6
+    NO_CREDIT = 8
     DONE = 7
 
 
@@ -44,16 +45,22 @@ class Workflow(Generic[Args]):
         self.workflow_type = worflow_type
 
     async def done(self, id: int) -> None:
+        await self.set_status(id, Status.DONE)
+
+    async def no_credit(self, id: int) -> None:
+        await self.set_status(id, Status.NO_CREDIT)
+
+    async def set_status(self, id: int, status: Status) -> None:
         UPDATE_SQL = """
             UPDATE workflow
             SET status = ?
             WHERE id = ?
         """
         async with SQLiteConnectionManager() as conn:
-            logger.info(f"Mark workflow: {id} as 'DONE'")
+            logger.info(f"Mark workflow: {id} as {status.name}")
             await conn.execute(
                 UPDATE_SQL,
-                (Status.DONE.value, id),
+                (status.value, id),
             )
             await conn.commit()
 
@@ -134,5 +141,4 @@ class Workflow(Generic[Args]):
         # get user
         user = await User.get_by_id(user_id)
         await self._start(id, user, args)
-        await self.done(id)
         return id
