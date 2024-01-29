@@ -32,8 +32,9 @@ class Status(Enum):
     WORKING = 4
     ERROR = 5
     FAILED = 6
-    NO_CREDIT = 8
     DONE = 7
+    NO_CREDIT = 8
+    DELETED = 20
 
 
 Args = TypeVar("Args", bound=BaseArgs)
